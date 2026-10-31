@@ -1,0 +1,61 @@
+# Chroma UI requirements
+#
+# torch is NOT listed here on purpose: install.bat installs it first
+# from PyTorch's cu130 CUDA index so GPU support works (same pattern
+# as the Kandinsky, Sana, Z-Image, and FLUX apps). Everything below
+# installs from PyPI after that.
+#
+# PIN NOTE -- read before changing anything. Every version below is
+# pinned. diffusers 0.42.0 is pinned because that release contains
+# the ChromaPipeline, ChromaTransformer2DModel, and
+# GGUFQuantizationConfig this app loads (verified against the
+# installed 0.42.0 source: ChromaPipeline.__call__ defaults are
+# 35 steps, guidance 5.0, max_sequence_length 512, and its
+# check_inputs raises on a prompt-plus-embeds call; the app passes
+# the model card's 40 steps and guidance 3.0 explicitly).
+# diffusers 0.42.0 needs huggingface-hub [1.32, 3.0); gradio 5.50.0
+# agrees on huggingface-hub 1.33.0 -- do NOT downgrade gradio to
+# 5.39.0, which needs huggingface-hub < 1.0 and pip refuses to
+# combine with diffusers 0.42.0. transformers 5.20.2 supplies the
+# T5-XXL text encoder and its tokenizer. sentencepiece is pinned
+# because the T5 tokenizer ships a spiece.model file -- and
+# protobuf and tiktoken below are pinned with it, because the
+# tokenizer's dependency chain does not end at sentencepiece
+# (see the notes on those two pins).
+#
+# VERIFICATION NOTE. The same cross-platform dry-run warning as the
+# sibling builds applies: a full-set dry run launched from a Linux
+# host cannot resolve torch-dependent packages for a Windows target
+# (pip evaluates torch's Linux-only nvidia-nccl markers against the
+# Linux host). That artifact does not exist on Alan's Windows
+# machine, where install.bat installs torch from the cu130 index
+# FIRST. The pin set itself is the family's verified set, unchanged.
+
+diffusers==0.42.0
+transformers==5.20.2
+accelerate==1.15.0
+safetensors==0.8.0
+gradio==5.50.0
+pillow==11.3.0
+huggingface_hub==1.33.0
+tokenizers==0.23.3
+sentencepiece==0.2.1
+# protobuf is REQUIRED alongside sentencepiece: transformers'
+# SentencePieceExtractor parses the T5 spiece.model THROUGH the
+# protobuf runtime (transformers 5.20.2's import_protobuf() also
+# refuses protobuf < 4.0.0 outright). Without it the tokenizer
+# load falls back to the TikToken extractor and the first
+# Generate dies -- the exact failure Alan's PC hit on
+# Oct 31, 2026. Regression evidence: tests/
+# tokenizer-fix-verification.txt in the goal folder. Do not
+# remove.
+protobuf==6.33.6
+# tiktoken is the fallback extractor's dependency. With protobuf
+# present it is never used for this model, but pinning it means
+# the fallback path can never hard-fail the load either.
+tiktoken==0.12.0
+# gguf is REQUIRED by diffusers to read .gguf checkpoints at all
+# (gguf>=0.10.0). Without it the quantized transformer load fails
+# with "Unable to load weights from checkpoint file" -- the exact
+# failure the Z-Image build hit on Oct 27, 2026. Do not remove.
+gguf==0.19.0
